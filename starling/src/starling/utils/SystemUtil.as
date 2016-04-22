@@ -1,7 +1,7 @@
 // =================================================================================================
 //
 //	Starling Framework
-//	Copyright 2011-2014 Gamua. All Rights Reserved.
+//	Copyright Gamua GmbH. All Rights Reserved.
 //
 //	This program is free software. You can redistribute and/or modify it
 //	in accordance with the terms of the accompanying license agreement.
@@ -10,11 +10,12 @@
 
 package starling.utils
 {
+    import flash.display3D.Context3D;
     import flash.events.Event;
     import flash.events.EventDispatcher;
     import flash.system.Capabilities;
     import flash.utils.getDefinitionByName;
-    
+
     import starling.errors.AbstractClassError;
 
     /** A utility class with methods related to the current platform and runtime. */
@@ -24,8 +25,10 @@ package starling.utils
         private static var sApplicationActive:Boolean = true;
         private static var sWaitingCalls:Array = [];
         private static var sPlatform:String;
+        private static var sDesktop:Boolean;
         private static var sVersion:String;
         private static var sAIR:Boolean;
+        private static var sSupportsDepthAndStencil:Boolean = true;
         
         /** @private */
         public function SystemUtil() { throw new AbstractClassError(); }
@@ -39,15 +42,21 @@ package starling.utils
             sInitialized = true;
             sPlatform = Capabilities.version.substr(0, 3);
             sVersion = Capabilities.version.substr(4);
-            
+            sDesktop = /(WIN|MAC|LNX)/.exec(sPlatform) != null;
+
             try
             {
                 var nativeAppClass:Object = getDefinitionByName("flash.desktop::NativeApplication");
                 var nativeApp:EventDispatcher = nativeAppClass["nativeApplication"] as EventDispatcher;
-                
+
                 nativeApp.addEventListener(Event.ACTIVATE, onActivate, false, 0, true);
                 nativeApp.addEventListener(Event.DEACTIVATE, onDeactivate, false, 0, true);
-                
+
+                var appDescriptor:XML = nativeApp["applicationDescriptor"];
+                var ns:Namespace = appDescriptor.namespace();
+                var ds:String = appDescriptor.ns::initialWindow.ns::depthAndStencil.toString().toLowerCase();
+
+                sSupportsDepthAndStencil = (ds == "true");
                 sAIR = true;
             }
             catch (e:Error)
@@ -61,8 +70,14 @@ package starling.utils
             sApplicationActive = true;
             
             for each (var call:Array in sWaitingCalls)
-                call[0].apply(null, call[1]);
-            
+            {
+                try { call[0].apply(null, call[1]); }
+                catch (e:Error)
+                {
+                    trace("[Starling] Error in 'executeWhenApplicationIsActive' call:", e.message);
+                }
+            }
+
             sWaitingCalls = [];
         }
         
@@ -104,7 +119,7 @@ package starling.utils
         public static function get isDesktop():Boolean
         {
             initialize();
-            return /(WIN|MAC|LNX)/.exec(sPlatform) != null;
+            return sDesktop;
         }
         
         /** Returns the three-letter platform string of the current system. These are
@@ -124,12 +139,19 @@ package starling.utils
             return sVersion;
         }
 
-        /** Prior to Flash/AIR 15, there was a restriction that the clear function must be
-         *  called on a render target before drawing. This requirement was removed subsequently,
-         *  and this property indicates if that's the case in the current runtime. */
-        public static function get supportsRelaxedTargetClearRequirement():Boolean
+        /** Returns the value of the 'initialWindow.depthAndStencil' node of the application
+         *  descriptor, if this in an AIR app; otherwise always <code>true</code>. */
+        public static function get supportsDepthAndStencil():Boolean
         {
-            return parseInt(/\d+/.exec(sVersion)[0]) >= 15;
+            return sSupportsDepthAndStencil;
+        }
+
+        /** Indicates if Context3D supports video textures. At the time of this writing,
+         *  video textures are only supported on Windows, OS X and iOS, and only in AIR
+         *  applications (not the Flash Player). */
+        public static function get supportsVideoTexture():Boolean
+        {
+            return Context3D["supportsVideoTexture"];
         }
     }
 }

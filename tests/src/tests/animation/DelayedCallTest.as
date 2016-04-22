@@ -1,7 +1,7 @@
 // =================================================================================================
 //
 //	Starling Framework
-//	Copyright 2011-2014 Gamua. All Rights Reserved.
+//	Copyright Gamua GmbH. All Rights Reserved.
 //
 //	This program is free software. You can redistribute and/or modify it
 //	in accordance with the terms of the accompanying license agreement.
@@ -13,9 +13,9 @@ package tests.animation
     import org.flexunit.asserts.assertEquals;
     import org.flexunit.asserts.assertFalse;
     import org.flexunit.asserts.assertTrue;
-    
+
     import starling.animation.DelayedCall;
-    
+
     public class DelayedCallTest
     {		
         [Test]
@@ -92,6 +92,45 @@ package tests.animation
             function raiseSum(by:int):void
             {
                 sum += by;
+            }
+        }
+
+        [Test]
+        public function testComplete():void
+        {
+            var sum:int = 0;
+            var dc:DelayedCall = new DelayedCall(raiseSum, 1.0);
+
+            dc.advanceTime(0.5);
+            assertEquals(0, sum);
+
+            dc.complete();
+            assertEquals(1, sum);
+            assertTrue(dc.isComplete);
+
+            dc.complete();
+            assertEquals(1, sum);
+
+            dc.advanceTime(10);
+            assertEquals(1, sum);
+
+            dc = new DelayedCall(raiseSum, 1.0);
+            dc.repeatCount = 3;
+
+            sum = 0;
+            dc.complete();
+            assertEquals(1, sum);
+            assertFalse(dc.isComplete);
+
+            for (var i:int = 0; i < 10; ++i)
+                dc.complete();
+
+            assertEquals(3, sum);
+            assertTrue(dc.isComplete);
+
+            function raiseSum():void
+            {
+                sum += 1;
             }
         }
     }
